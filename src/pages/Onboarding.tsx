@@ -5,8 +5,9 @@ import { Select } from "../components/ui/Select";
 import { useState } from "react";
 import { Textarea } from "../components/ui/Textarea";
 import { Button } from "../components/ui/Button";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import type { UserProfile } from "../types";
+import { useNavigate } from "react-router-dom";
 
 const goalOptions = [
     { value: "bulk", label: "Build Muscle (Bulk)" },
@@ -51,7 +52,7 @@ const splitOptions = [
 ];
 
 export default function Onboarding() {
-    const { user, saveProfile } = useAuth();
+    const { user, saveProfile, generatePlan } = useAuth();
     const [formData, setFormData] = useState({
         goal: "bulk",
         experience: "intermediate",
@@ -61,6 +62,9 @@ export default function Onboarding() {
         injuries: "",
         preferredSplit: "upper_lower",
     });
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [error, setError] = useState("");
+    const navigate = useNavigate();
 
     function updateForm(field: string, value: string) {
         setFormData((prev) => ({ ...prev, [field]: value }));
@@ -78,7 +82,16 @@ export default function Onboarding() {
             injuries: formData.injuries || undefined,
             preferredSplit: formData.preferredSplit as UserProfile["preferredSplit"],
         }
-        saveProfile(profile);
+        try {
+            await saveProfile(profile);
+            setIsGenerating(true);
+            await generatePlan();
+            navigate("/profile");
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to save profile");
+        } finally {
+            setIsGenerating(false);
+        }
     }
 
     if (!user) {
@@ -92,7 +105,7 @@ export default function Onboarding() {
                     {/* Progress Indicator */}
 
                     {/* Step 1: Questionnaire */}
-                    <Card variant="bordered">
+                    {!isGenerating ? (<Card variant="bordered">
                         <h1 className="text-2xl font-bold mb-2">Tell Us About Yourself</h1>
                         <p className="text-[var(--color-muted)] mb-6">
                             Help us create the perfect plan for you.
@@ -159,8 +172,13 @@ export default function Onboarding() {
                             </div>
                         </form>
                     </Card>
-
-                    {/* Step 2: Generating */}
+                    ) : (
+                        <Card variant="bordered" className="text-center py-16">
+                            <Loader2 className="w-12 h-12 text-[var(--color-accent)] mx-auto mb-6 animate-spin"/>
+                            <h1 className="text-2xl font-bold mb-2">Creating your Plan</h1>
+                            <p className="text-[var(--color-muted)]">Our AI is building your personalized training program...</p>
+                        </Card>
+                    )}
                 </div>
             </div>
         </SignedIn>
